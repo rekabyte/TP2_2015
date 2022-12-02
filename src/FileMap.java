@@ -5,27 +5,27 @@ import java.util.Set;
 
 public class FileMap<K,V> implements Map<K,V> {
     @Override
-    public int size() { }
+    public int size() { return 0; }
     @Override
-    public boolean isEmpty() { }
+    public boolean isEmpty() { return false;}
     @Override
-    public boolean containsKey(Object key) { }
+    public boolean containsKey(Object key) { return false;}
     @Override
-    public boolean containsValue(Object value) { }
+    public boolean containsValue(Object value) { return false;}
     @Override
-    public V get(Object key) {}
+    public V get(Object key) {return null;}
     @Override
-    public V put(K key, V value) {}
+    public V put(K key, V value) {return null;}
     @Override
-    public V remove(Object key) {}
+    public V remove(Object key) {return null;}
     @Override
     public void putAll(Map<? extends K,? extends V> m) {}
     @Override
     public void clear() {}
     @Override
-    public Set<K> keySet() {}
+    public Set<K> keySet() { return null;}
     @Override
-    public Collection<V> values() {}
+    public Collection<V> values() {return null;}
     @Override
-    public Set<Map.Entry<K,V>> entrySet() {}
+    public Set<Map.Entry<K,V>> entrySet() {return null;}
 }
