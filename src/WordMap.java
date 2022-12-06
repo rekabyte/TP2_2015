@@ -85,10 +85,10 @@ public class WordMap<K,V> implements Map<K,V> {
 		return bucketRemove(hashValue((K) key), (K) key);
 	}
 	@Override
-	public void putAll(Map<? extends K,? extends V> m) {
-		Iterator<? extends Map.Entry<K, V>> iterator = (Iterator<? extends Map.Entry<K,V>>) m.entrySet().iterator();
+	public void putAll(Map<? extends K, ? extends V> m) {
+		Iterator<? extends Entry<? extends K, ? extends V>> iterator =  m.entrySet().iterator();
 		while(iterator.hasNext()) {
-			Map.Entry<K, V> entry = iterator.next();
+			Map.Entry<K, V> entry = (Entry<K, V>) iterator.next();
 			put(entry.getKey(), entry.getValue());
 		}
 	}
