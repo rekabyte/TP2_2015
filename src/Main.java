@@ -1,4 +1,7 @@
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.StringTokenizer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 //import edu.stanford.nlp.ling.*;
@@ -12,8 +15,19 @@ public class Main {
 	 * @throws Exception Throws file exception.
 	 */
 	public static void main(String[] args) throws Exception {
-
 		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset");
+		//for(String[] bigram : TLNManager.bigrams)
+		//	System.out.println(bigram[0] + " -> " + bigram[1]);
+	}
+
+	public static void searchFor(String string) {
+		String test = "This article is about the astronomical object. For other uses, see Planet  (disambiguation). " +
+				"A planet is a large, rounded astronomical body that is  neither a star nor its remnant. The best available theory of planet";
+		int wordPosition = test.toLowerCase().indexOf(string, 0);
+		while (wordPosition >= 0) {
+			System.out.println("trouvable a la position : " + wordPosition);
+			wordPosition = test.toLowerCase().indexOf(string, wordPosition+ string.length());
+		}
 	}
 
 	public static void tlnTest() {
@@ -76,7 +90,7 @@ public class Main {
 	
 	//Tests unitaires pour verifier que tout fonctionne bien
 	public static void mapTest() {
-		WordMap<String,String> wordMap = new WordMap<>(10);
+		WordMap<String,String> wordMap = new WordMap<>(3);
 		wordMap.put("un", "abc");
 		wordMap.put("deux", "suii");
 		wordMap.put("rtois", "receba");
