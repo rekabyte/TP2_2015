@@ -37,13 +37,19 @@ public class WordMap<K,V> implements Map<K,V> {
 	protected int prime;			//facteur prime
 
 	private MapEntry<K,V>[] table;	//on utilise un tableau fixe de type MapEntry, on l'init dans la fct createTable()
-	private MapEntry<K,V> DEFUNCT = new MapEntry<K,V>(null, null);	//Entree speciale qui indique qu'une case est vide
+	private final MapEntry<K,V> DEFUNCT = new MapEntry<>(null, null);	//Entree speciale qui indique qu'une case est vide
 
 	//Constructeur qui initialise la map avec la capacite specifiee
 	public WordMap(int cap) {
 		this.prime = 41;
 		this.capacity = cap;
 		this.createTable();
+	}
+
+	//Copier une instance de WordMap:
+	public WordMap(WordMap<K,V> original) {
+		this(10);
+		for(K entry : original.keySet()) this.put(entry, original.get(entry));
 	}
 
 	//Fonction qui initialise le tableau qui contiendra nos MapEntry<K,V> avec l'attribut capacity
@@ -127,6 +133,10 @@ public class WordMap<K,V> implements Map<K,V> {
 	}
 
 	//=====================FONCTIONS RAJOUTÉES (Pour gerer le sondage lineaire)=========================//
+	public K getKey(K key) {
+		return bucketGetObject(hashValue(key), (K) key);
+	}
+
 	private int hashValue(K key) {
 		if(key instanceof String)  {						//Si c'est un String, on fait un hash a decalage cyclique
 			int h = 0;
@@ -198,6 +208,11 @@ public class WordMap<K,V> implements Map<K,V> {
 		return retV;
 	}
 
+	protected K bucketGetObject(int h, K k) {
+		int j = findSlot(h, k);
+		if(j < 0) return null;		//Pas de match trouve
+		return table[j].getKey();
+	}
 }
 
 

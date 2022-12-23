@@ -9,9 +9,46 @@ import java.util.zip.ZipInputStream;
 
 public class TLNManager {
 
-    public static ArrayList<File> dataSet;
-    public static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
-    public static ArrayList<String[]> bigrams = new ArrayList<String[]>();
+    private static ArrayList<File> dataSet;
+    private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
+    private static WordMap<String, Integer> wordsCount;
+    private static ArrayList<BigramEntry> bigrams;
+    private static WordMap<String[], Integer> bigramCounts;
+
+    public static class BigramEntry {
+        String bigram1 = "";
+        String bigram2 = "";
+
+        public BigramEntry(String bigram1, String bigram2) {
+            this.bigram1 = bigram1;
+            this.bigram2 = bigram2;
+        }
+
+        public boolean equals(BigramEntry anotherBigramEntry) {
+            if(bigram1.equalsIgnoreCase(anotherBigramEntry.getBigram1()) &&
+            bigram2.equalsIgnoreCase(anotherBigramEntry.getBigram2()))
+                return true;
+            return false;
+        }
+
+        public String getBigram1() {
+            return bigram1;
+        }
+
+        public void setBigram1(String bigram1) {
+            this.bigram1 = bigram1;
+        }
+
+        public String getBigram2() {
+            return bigram2;
+        }
+
+        public void setBigram2(String bigram2) {
+            this.bigram2 = bigram2;
+        }
+
+        public String toString() { return bigram1 + " - " + bigram2;}
+    }
 
     //Ouvre le dataset et le decompresse, les stockes temporairement sur l'ordinateur, les analyses(TLN), puis les supprimes.
     public static void datasetReader(String filePath) throws IOException {
@@ -58,20 +95,18 @@ public class TLNManager {
         deleteDirectory(destDir);
     }
 
-    //Traite les textes qui se trouvent dans la datalist
+    //Traite les textes qui se trouvent dans la datalist, les tokenize et les repartit sur la wordMap et gere egalement les fileMaps
     private static void processDataset(List<File> datasetList) throws FileNotFoundException {
         wordMap = new WordMap<>(20);
+        wordsCount = new WordMap<>(5);
+        bigrams = new ArrayList<>();
+        bigramCounts = new WordMap<String[], Integer>(3);
 
         // set up pipeline properties
         Properties props = new Properties();
-        // set the list of annotators to run
         props.setProperty("annotators", "tokenize,pos,lemma");
-        // set a property for an annotator, in this case the coref annotator is being
-        // set to use the neural algorithm
         props.setProperty("coref.algorithm", "neural");
-        // build pipeline
         StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
-        // create a document object
 
         //For every file in datasetlist
         for (File file : datasetList) {
@@ -106,14 +141,18 @@ public class TLNManager {
 
                 wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
 
-                if(compteur != 1) {
-                    String[] bigram = {previousWord, tok.lemma()};
+                if(compteur != 1) {                                                             //Gere les bigrams:
+                    BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
                     bigrams.add(bigram);
                 }
+
+                if(!wordsCount.containsKey(tok.lemma()))    wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
+                else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
 
                 previousWord = tok.lemma();
 
                 compteur++;
+
             }
 
         }
@@ -154,6 +193,27 @@ public class TLNManager {
     //et un autre dossier caché qui s'appelle __MACOSX et qui contient la copie de tout les fichiers presents dans le premier dossier test
     private static boolean isValidFile(String fileName) {
         return fileName.endsWith(".txt") && !fileName.contains("._") && !fileName.contains(".DS_store");
+    }
+
+    //============  GETTERS ================
+    public static ArrayList<File> getData() {
+        return dataSet;
+    }
+
+    public static WordMap<String, FileMap<String, ArrayList<Integer>>> getWordMap() {
+        return wordMap;
+    }
+
+    public static ArrayList<BigramEntry> getBigrams() {
+        return bigrams;
+    }
+
+    public static WordMap<String, Integer> getWordsCount() {
+        return wordsCount;
+    }
+
+    public static WordMap<String[], Integer> getBigramCounts() {
+        return bigramCounts;
     }
 
 }

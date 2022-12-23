@@ -15,9 +15,11 @@ public class Main {
 	 * @throws Exception Throws file exception.
 	 */
 	public static void main(String[] args) throws Exception {
-		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset");
-		//for(String[] bigram : TLNManager.bigrams)
-		//	System.out.println(bigram[0] + " -> " + bigram[1]);
+		long start = System.currentTimeMillis();
+
+		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset2");
+		//BigramsManager.init();
+		System.out.println("Programme s'est termine apres: " + (System.currentTimeMillis() - start) + "ms");
 	}
 
 	public static void searchFor(String string) {
