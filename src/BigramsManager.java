@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
 public class BigramsManager {
 
@@ -12,22 +14,22 @@ public class BigramsManager {
         bigrams = TLNManager.getBigrams();
         wordMap = TLNManager.getWordMap();
         wordsCount = TLNManager.getWordsCount();
-        bigramsCount = new WordMap<>(10);
-        //countBigrams();
-        //likelyBigram("the");
+        bigramsCount = TLNManager.getBigramCounts();
+        secondLikely("fox");
     }
 
-    private static void likelyBigram(String w1) {
+    //================= DEVELOPER'S UTILITIES =====================
+    private static void secondLikely(String w1) {
         WordMap<String, Float> probabilties = new WordMap<>(4);
         ArrayList<String> secondsWord = new ArrayList<>();
 
-        for(TLNManager.BigramEntry bigram : bigrams) {                      //Trouve tout les seconds mots possibles apers un firstWord
-            if(bigram.getBigram1().equalsIgnoreCase(w1)) {
-                if(!secondsWord.contains(bigram.getBigram2()))
+        for (TLNManager.BigramEntry bigram : bigrams) {                      //Trouve tout les seconds mots possibles apers un firstWord
+            if (bigram.getBigram1().equalsIgnoreCase(w1)) {
+                if (!secondsWord.contains(bigram.getBigram2()))
                     secondsWord.add(bigram.getBigram2());
             }
         }
-        System.out.println(secondsWord);
+        System.out.println("Les deuxiemes mots trouvables apres \"" + w1 + "\" sont " + secondsWord);
         //{1} = On cherche P(W2|W1) POUR CHAQUE W2 ET P(W2|W1) = C(W1|W2) / C(W1)
         //{2} = DONC ON VA LOOPER TOUT LES W2
         //{3} = POUR CHAQUE ITERATION ON VA TROUVER C(W1|W2) QUI SE TROUVE DANS BIGRAMSCOUNT
@@ -35,58 +37,32 @@ public class BigramsManager {
         //{5} = DANS LA MEME ITERATION ON CALCULE SA PROBA PUIS ON L'AJOUTE DANS probabilities.
         //{6} = ON SORT DE L'ITERATION,PUIS ON DETERMINE LE MOT AVEC LA PROBA LA PLUS HAUTE PUIS ON LE RETOURNE
 
-        for(String w2 : secondsWord) {                                  //{2}
-            int cW1W2 = -1;
-            int cW1   = -1;
-            for(TLNManager.BigramEntry entry : bigramsCount.keySet()) { //{3}
-                if(entry.equals(new TLNManager.BigramEntry(w1,w2))) {
-                    cW1W2 = bigramsCount.get(entry);
-                    break;
-                }
-            }
-            for(String entry : wordsCount.keySet()) {                   //{4}
-                if(entry.equalsIgnoreCase(w1)) {
-                    cW1 = wordsCount.get(w1);
-                    //System.out.println(cW1);
-                    break;
-                }
-            }
+        for (String w2 : secondsWord) {                                                     //{2}
+            int cW1W2 = bigramsCount.get(new TLNManager.BigramEntry(w1, w2));               //{3}
+            int cW1 = wordsCount.get(w1);                                                   //{4}
 
             float currentProbabilty = ((float) cW1W2 / (float) cW1);                        //{5}
             probabilties.put(w2, currentProbabilty);
         }
+        System.out.println(probabilties);
+        float highestProb = findMax(probabilties.values());                                 //{6}
 
-        //{6}
-
-
-
-
-
+        System.out.println("Le mot le plus probable apres: \t" + w1 + " est " + findSmallestString(probabilties.getKeysFromValue(highestProb)));
     }
 
-    private static void countBigrams() {
-        ArrayList<TLNManager.BigramEntry> bigramsCopy = new ArrayList<>(bigrams);
-        for (TLNManager.BigramEntry entry : bigrams) {      //Parcourt chaque bigram dans bigrams
-            if(alreadyProcessed(entry)) {                   //Verifie si le bigram a deja ete analysee, si oui on ne l'analyse pas
-                continue;
-            }
-            processedBigrams.add(entry);                    //Si non, on l'analyse puis on l'ajoute a la liste des deja analysé
-            int compteur = 0;                               //Compte la presence d'un bigram dans la liste
-            for (TLNManager.BigramEntry entry2 : bigrams) { //Parcourt chaque bigram dans bigram
-                if (entry.equals(entry2))
-                    compteur++;
-            }
-            bigramsCount.put(entry, compteur);
+    private static float findMax(Collection<Float> numbers) {
+        ArrayList<Float> numbersList = (ArrayList<Float>) numbers;
+        float max = -1;
+        for (int i = 0; i < numbers.size(); i++) {
+            max = Math.max(numbersList.get(i), max);
         }
-        bigrams = bigramsCopy;
+        return max;
     }
 
-    private static boolean alreadyProcessed(TLNManager.BigramEntry entry) {
-        for(TLNManager.BigramEntry bigram : processedBigrams)
-            if(bigram.equals(entry)) {
-                return true;
-            }
-        return false;
+    private static String findSmallestString(ArrayList<String> words) {
+        Collections.sort(words);
+        if(words.size() !=0) return words.get(0);
+        return null;
     }
 
 }

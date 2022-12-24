@@ -65,9 +65,13 @@ public class WordMap<K,V> implements Map<K,V> {
 	}
 
 	@Override
-	public boolean containsKey(Object key) { 
+	public boolean containsKey(Object key) {
+		//System.out.println("On essaye de trouver " + key);
 		return bucketGet(hashValue((K) key), (K) key) != null;
 	}
+
+	public boolean contains(K key) { return bucketGet(hashValue(key),  key) != null;}
+
 	@Override
 	public boolean containsValue(Object value) { 
 		List<V> values = (ArrayList<V>) values();
@@ -132,10 +136,15 @@ public class WordMap<K,V> implements Map<K,V> {
 		return res + "]";
 	}
 
-	//=====================FONCTIONS RAJOUTÉES (Pour gerer le sondage lineaire)=========================//
-	public K getKey(K key) {
-		return bucketGetObject(hashValue(key), (K) key);
+	public ArrayList<K> getKeysFromValue(V v) {
+		ArrayList<K> keys = new ArrayList<>();
+		for(K key : keySet()) {
+			if(get(key).equals(v)) keys.add(key);
+		}
+		return keys;
 	}
+
+	//=====================FONCTIONS RAJOUTÉES (Pour gerer le sondage lineaire)=========================//
 
 	private int hashValue(K key) {
 		if(key instanceof String)  {						//Si c'est un String, on fait un hash a decalage cyclique
@@ -145,7 +154,16 @@ public class WordMap<K,V> implements Map<K,V> {
 				h += (int)(((String) key).charAt(i));
 			}
 			return Math.abs(h % capacity);							//On compresse le hash et on le return
-		} else {											//Si ce n'est pas un String, on utilise la fct hashCode par defaut de Java
+		}
+		else if(key instanceof TLNManager.BigramEntry) {
+			int h = 0;
+			for(int i = 0 ; i < ((((TLNManager.BigramEntry) key).getBigram1()).length()); i++) {
+				h = (h << 5) | (h >>> 27);
+				h += (int)(((String) ((TLNManager.BigramEntry) key).getBigram1()).charAt(i));
+			}
+			return Math.abs(h % capacity);							//On compresse le hash et on le return
+		}
+		else {											//Si ce n'est pas un String, on utilise la fct hashCode par defaut de Java
 			return key.hashCode() % capacity;
 		}
 	}

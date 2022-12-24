@@ -13,21 +13,30 @@ public class TLNManager {
     private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
     private static WordMap<String, Integer> wordsCount;
     private static ArrayList<BigramEntry> bigrams;
-    private static WordMap<String[], Integer> bigramCounts;
+    private static WordMap<BigramEntry, Integer> bigramCounts;
 
-    public static class BigramEntry {
+    public static boolean debug = true;
+
+    public static class BigramEntry extends Object{
         String bigram1 = "";
         String bigram2 = "";
+        int length = -1;
 
         public BigramEntry(String bigram1, String bigram2) {
             this.bigram1 = bigram1;
             this.bigram2 = bigram2;
+            length = bigram1.length() + bigram2.length();
         }
 
-        public boolean equals(BigramEntry anotherBigramEntry) {
+        @Override
+        public boolean equals(Object other) {
+            BigramEntry anotherBigramEntry = (BigramEntry) other;
             if(bigram1.equalsIgnoreCase(anotherBigramEntry.getBigram1()) &&
-            bigram2.equalsIgnoreCase(anotherBigramEntry.getBigram2()))
+            bigram2.equalsIgnoreCase(anotherBigramEntry.getBigram2())) {
+                //System.out.println(anotherBigramEntry + " est pareil que " + this.toString());
                 return true;
+            }
+            //System.out.println(anotherBigramEntry + " est different de " + this.toString());
             return false;
         }
 
@@ -35,16 +44,8 @@ public class TLNManager {
             return bigram1;
         }
 
-        public void setBigram1(String bigram1) {
-            this.bigram1 = bigram1;
-        }
-
         public String getBigram2() {
             return bigram2;
-        }
-
-        public void setBigram2(String bigram2) {
-            this.bigram2 = bigram2;
         }
 
         public String toString() { return bigram1 + " - " + bigram2;}
@@ -87,7 +88,7 @@ public class TLNManager {
             }
             zipEntry = zis.getNextEntry();
         }
-
+        System.out.println("Lecture/ecriture des fichiers termines");
         zis.closeEntry();
         zis.close();
 
@@ -100,7 +101,7 @@ public class TLNManager {
         wordMap = new WordMap<>(20);
         wordsCount = new WordMap<>(5);
         bigrams = new ArrayList<>();
-        bigramCounts = new WordMap<String[], Integer>(3);
+        bigramCounts = new WordMap<BigramEntry, Integer>(10);
 
         // set up pipeline properties
         Properties props = new Properties();
@@ -108,6 +109,7 @@ public class TLNManager {
         props.setProperty("coref.algorithm", "neural");
         StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
 
+        int numFichier = 0;                 //DEBUG
         //For every file in datasetlist
         for (File file : datasetList) {
             Scanner scanner = new Scanner(file);
@@ -118,18 +120,24 @@ public class TLNManager {
             }
             scanner.close();
 
+
             CoreDocument document = new CoreDocument(fileContent.toLowerCase(Locale.ROOT));
             // annotate the document
+            //long start2 = System.currentTimeMillis();
             pipeline.annotate(document);
 
             int compteur = 1;                                                                   //Compte l'indexe des mots(tok)
             String previousWord = "";
 
             //Pour chaque tok contenu dans le fichier
+
+            //System.out.println("On commence l'analyse des tok.");
             for (CoreLabel tok : document.tokens()) {
                 if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|\\}"))
-                    continue;      //Si le tok actuel est un caractere d'accentuation, on
+                    continue;                                                                   //Si le tok actuel est un caractere d'accentuation, on
                 //skip cette iteration et on passe au tok suivant.
+
+                //long start = System.nanoTime();
 
                 if (!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
                     wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
@@ -144,7 +152,13 @@ public class TLNManager {
                 if(compteur != 1) {                                                             //Gere les bigrams:
                     BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
                     bigrams.add(bigram);
+                    if(!bigramCounts.containsKey(bigram))                                       //Gere les counts de bigram
+                        bigramCounts.put(bigram, 1);
+                    else
+                        bigramCounts.put(bigram, bigramCounts.get(bigram) + 1);
                 }
+
+
 
                 if(!wordsCount.containsKey(tok.lemma()))    wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
                 else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
@@ -154,7 +168,9 @@ public class TLNManager {
                 compteur++;
 
             }
-
+            //System.out.println("Analyse d'un fichier s'est termine apres: " + (System.currentTimeMillis() - start2) + "ms");
+            numFichier++;
+            if(debug) System.out.println(file.getName() + " annotated \t" + numFichier +"/"+ datasetList.size());
         }
 
 
@@ -212,7 +228,7 @@ public class TLNManager {
         return wordsCount;
     }
 
-    public static WordMap<String[], Integer> getBigramCounts() {
+    public static WordMap<BigramEntry, Integer> getBigramCounts() {
         return bigramCounts;
     }
 

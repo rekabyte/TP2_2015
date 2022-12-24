@@ -1,3 +1,5 @@
+import edu.stanford.nlp.ling.Word;
+
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -8,6 +10,7 @@ import java.util.zip.ZipInputStream;
 //import edu.stanford.nlp.pipeline.*;
 import java.util.Properties;
 
+
 public class Main {
 	/**
 	 * Driver class method.
@@ -17,9 +20,31 @@ public class Main {
 	public static void main(String[] args) throws Exception {
 		long start = System.currentTimeMillis();
 
-		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset2");
-		//BigramsManager.init();
+		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\testset");
+		BigramsManager.init();
 		System.out.println("Programme s'est termine apres: " + (System.currentTimeMillis() - start) + "ms");
+	}
+
+	public static int hashValue(Object key, int capacity) {
+		if(key instanceof String)  {						//Si c'est un String, on fait un hash a decalage cyclique
+			int h = 0;
+			for(int i = 0 ; i < ((String) key).length(); i++) {
+				h = (h << 5) | (h >>> 27);
+				h += (int)(((String) key).charAt(i));
+			}
+			return Math.abs(h % capacity);							//On compresse le hash et on le return
+		}
+		else if(key instanceof TLNManager.BigramEntry) {
+			int h = 0;
+			for(int i = 0 ; i < ((((TLNManager.BigramEntry) key).getBigram1()).length()); i++) {
+				h = (h << 5) | (h >>> 27);
+				h += (int)(((String) ((TLNManager.BigramEntry) key).getBigram1()).charAt(i));
+			}
+			return Math.abs(h % capacity);							//On compresse le hash et on le return
+		}
+		else {											//Si ce n'est pas un String, on utilise la fct hashCode par defaut de Java
+			return key.hashCode() % capacity;
+		}
 	}
 
 	public static void searchFor(String string) {
