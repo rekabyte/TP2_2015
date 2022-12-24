@@ -8,20 +8,27 @@ public class BigramsManager {
     private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
     private static WordMap<String, Integer> wordsCount;
     private static WordMap<TLNManager.BigramEntry, Integer> bigramsCount;
+    private static WordMap<String, String> searchQueries;
+    private static WordMap<String, String> probQueries;
 
     public static void init() {
         bigrams = TLNManager.getBigrams();
         wordMap = TLNManager.getWordMap();
         wordsCount = TLNManager.getWordsCount();
         bigramsCount = TLNManager.getBigramCounts();
-        secondLikely("the");
-        for(String s : TLNManager.getWordsPerFile().keySet()) {
-            System.out.println(s + "\t" +  TLNManager.getWordsPerFile().get(s));
-        }
+
+        searchQueries = TLNManager.getSearchQueries();
+        probQueries = TLNManager.getProbQueries();
+
+        for(String s : probQueries.keySet()) System.out.println(secondLikely(s));
+
+        //for(String s : TLNManager.getWordsPerFile().keySet()) System.out.println(s + "\t" +  TLNManager.getWordsPerFile().get(s));
+        //System.out.println("Tout les bigrams:" + bigrams);;
+        //System.out.println("Comptage de bigrams:" + bigramsCount);;
     }
 
     //================= DEVELOPER'S UTILITIES =====================
-    private static void secondLikely(String w1) {
+    private static String secondLikely(String w1) {
         WordMap<String, Float> probabilties = new WordMap<>(4);
         ArrayList<String> secondsWord = new ArrayList<>();
 
@@ -31,7 +38,7 @@ public class BigramsManager {
                     secondsWord.add(bigram.getBigram2());
             }
         }
-        System.out.println("Les deuxiemes mots trouvables apres \"" + w1 + "\" sont " + secondsWord);
+        //System.out.println("Les deuxiemes mots trouvables apres \"" + w1 + "\" sont " + secondsWord);
         //{1} = On cherche P(W2|W1) POUR CHAQUE W2 ET P(W2|W1) = C(W1|W2) / C(W1)
         //{2} = DONC ON VA LOOPER TOUT LES W2
         //{3} = POUR CHAQUE ITERATION ON VA TROUVER C(W1|W2) QUI SE TROUVE DANS BIGRAMSCOUNT
@@ -46,10 +53,10 @@ public class BigramsManager {
             float currentProbabilty = ((float) cW1W2 / (float) cW1);                        //{5}
             probabilties.put(w2, currentProbabilty);
         }
-        System.out.println(probabilties);
+        //System.out.println(probabilties);
         float highestProb = findMax(probabilties.values());                                 //{6}
 
-        System.out.println("Le mot le plus probable apres: \t" + w1 + " est " + findSmallestString(probabilties.getKeysFromValue(highestProb)));
+        return "Le mot le plus probable apres: \t" + w1 + " est " + findSmallestString(probabilties.getKeysFromValue(highestProb));
     }
 
     private static float findMax(Collection<Float> numbers) {

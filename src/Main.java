@@ -15,7 +15,8 @@ public class Main {
 
 	public static String query;
 	public static boolean debug;
-	private static WordMap<String, String> queries;
+	private static WordMap<String, String> searchQueries;
+	private static WordMap<String, String> probQueries;
 
 	public static void main(String[] args) throws Exception {
 		long start = System.currentTimeMillis();													//DEBUG
@@ -25,16 +26,18 @@ public class Main {
 
 		readQuery(query);
 
-		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\testset");
+		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset2");
 		BigramsManager.init();
 		System.out.println("Programme s'est termine apres: " + (System.currentTimeMillis() - start) + "ms");
 
 	}
 
-	public static WordMap<String,String> getQueries() { return queries;}
+	public static WordMap<String,String> getSearchQueries() { return searchQueries;}
+	public static WordMap<String,String> getProbQueries() { return probQueries;}
 
 	private static void readQuery(String filePath) {
-		queries = new WordMap<>(4);
+		searchQueries = new WordMap<>(4);
+		probQueries = new WordMap<>(4);
 		try{
 			File query = new File(filePath);
 			Scanner scanner = new Scanner(query);
@@ -42,20 +45,24 @@ public class Main {
 				String line = scanner.nextLine();
 				if(line.toLowerCase().contains("search")) {
 					String value = line.split(" ")[line.split(" ").length - 1];
-					queries.put("search", value.toLowerCase());
-					System.out.println("We're looking for: " + value);
+					searchQueries.put(value.toLowerCase(), "search");
+					//System.out.println("We're looking for: " + value);
 					continue;
 				}
 				else if(line.toLowerCase().contains("the most probable bigram of")) {
 					String value = line.split(" ")[line.split(" ").length - 1];
-					queries.put("probable", value.toLowerCase());
-					System.out.println("Most likely word after " + value);
+					probQueries.put(value.toLowerCase(), "probable");
+					//System.out.println("Most likely word after " + value);
 					continue;
 				}
-				System.out.println("Rien trouve");
+				System.out.println("Rien trouve dans le fichier query");
 				scanner.nextLine();
 			}
 			scanner.close();
+			if(debug) {
+				System.out.println("Ensemble des search queries: " + searchQueries);
+				System.out.println("Ensemble des proba queries: " + probQueries);
+			}
 		} catch (FileNotFoundException e) {
 			System.out.println("Fichier "+query+" introuvable.");
 		}

@@ -16,7 +16,8 @@ public class TLNManager {
     private static ArrayList<BigramEntry> bigrams;
     private static WordMap<BigramEntry, Integer> bigramCounts;
     private static WordMap<String, Integer> wordsPerFile;
-    private static WordMap<String, String> queries;
+    private static WordMap<String, String> searchQueries;
+    private static WordMap<String, String> probQueries;
 
     private static boolean debug;
 
@@ -101,7 +102,8 @@ public class TLNManager {
         bigramCounts = new WordMap<>(10);
         wordsPerFile = new WordMap<>(10);
 
-        queries = Main.getQueries();
+        searchQueries = Main.getSearchQueries();
+        probQueries = Main.getProbQueries();
 
         // set up pipeline properties
         Properties props = new Properties();
@@ -109,59 +111,89 @@ public class TLNManager {
         props.setProperty("coref.algorithm", "neural");
         StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
 
-        int numFichier = 0;                 //DEBUG
-        //For every file in datasetlist
-        for (File file : datasetList) {
-            Scanner scanner = new Scanner(file);
-            StringBuilder fileContent = new StringBuilder();
-            while (scanner.hasNext()) {
-                fileContent.append(scanner.nextLine()).append(" ");
-            }
-            scanner.close();
+        //This piece of code annotate the query search
+        //If the query says "search was", it becomes : "search be"
+        WordMap<String,String> newMap = new WordMap<>(2);
+        for(String query : searchQueries.keySet()) {
+            CoreDocument newDoc = new CoreDocument(query);
+            pipeline.annotate(newDoc);
+            newMap.put(newDoc.tokens().get(0).lemma(), searchQueries.get(query));
+        }
+        searchQueries = newMap;
+        //System.out.println("Ensemble des search queries apres annotations:\t"+searchQueries);
 
-            CoreDocument document = new CoreDocument(fileContent.toString().toLowerCase(Locale.ROOT));
-            // annotate the document
-            //long start2 = System.currentTimeMillis();
-            pipeline.annotate(document);
+        newMap = new WordMap<>(2);
+        for(String query : probQueries.keySet()) {
+            CoreDocument newDoc = new CoreDocument(query);
+            pipeline.annotate(newDoc);
+            newMap.put(newDoc.tokens().get(0).lemma(), probQueries.get(query));
+        }
+        searchQueries = newMap;
+        //if(debug) System.out.println("Ensemble des prob queries apres annotations:\t"+searchQueries);
 
-            int compteur = 1;                                                                   //Compte l'indexe des mots(tok)
-            String previousWord = "";
 
-            //Pour chaque tok contenu dans le fichier
-            for (CoreLabel tok : document.tokens()) {
-                if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|}"))
-                    continue;                                                                   //Si le tok actuel est un caractere d'accentuation, on
-                                                                                                //skip cette iteration et on passe au tok suivant.
-                if (!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
-                    wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
-                    wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());
+
+
+
+        for(String prob : probQueries.keySet())                 //Pour chaque mot a trouver la proba:
+        {
+            int numFichier = 0;                 //DEBUG
+            //For every file in datasetlist
+            for (File file : datasetList) {
+                //Reading the current File:
+                Scanner scanner = new Scanner(file);
+                StringBuilder fileContent = new StringBuilder();
+                while (scanner.hasNext()) {
+                    fileContent.append(scanner.nextLine()).append(" ");
                 }
+                scanner.close();
+                CoreDocument document = new CoreDocument(fileContent.toString().toLowerCase(Locale.ROOT));
+                // annotate the document
+                pipeline.annotate(document);
 
-                if (!wordMap.get(tok.lemma()).containsKey(file.getName()))                       //Si la wordMap contient le mot mais dans un autre fichier:
-                    wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());            //Alors on get le mot et on rajoute un nouveau fileMap avec le nom du fichier actuel
+                int compteur = 1;                                                                   //Compte l'indexe des mots(tok)
+                String previousWord = "";
 
-                wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
+                //Pour chaque tok contenu dans le fichier
+                for (CoreLabel tok : document.tokens()) {
+                    //Si le tok actuel est un caractere d'accentuation, on skip cette iteration et on passe au tok suivant.
+                    if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|}"))
+                        continue;
 
-                if(compteur != 1) {                                                             //Gere les bigrams:
-                    BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
-                    bigrams.add(bigram);
-                    if(!bigramCounts.containsKey(bigram))                                       //Gere les counts de bigram
-                        bigramCounts.put(bigram, 1);
-                    else
-                        bigramCounts.put(bigram, bigramCounts.get(bigram) + 1);
+
+                    //System.out.println(prob);
+                    if (!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
+                        wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
+                        wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());
+                    }
+
+                    if (!wordMap.get(tok.lemma()).containsKey(file.getName()))                       //Si la wordMap contient le mot mais dans un autre fichier:
+                        wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());            //Alors on get le mot et on rajoute un nouveau fileMap avec le nom du fichier actuel
+
+                    wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
+
+                    if(previousWord.equalsIgnoreCase(prob)) {
+                        if (compteur != 1) {                                                             //Gere les bigrams:
+                            BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
+                            bigrams.add(bigram);
+                            if (!bigramCounts.containsKey(bigram))                                       //Gere les counts de bigram
+                                bigramCounts.put(bigram, 1);
+                            else
+                                bigramCounts.put(bigram, bigramCounts.get(bigram) + 1);
+                        }
+                   }                                    //Compte les bigrams uniquement si on en a besoin (present dans probQueries)
+                    if (!wordsCount.containsKey(tok.lemma())) wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
+                    else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
+
+                    previousWord = tok.lemma();
+                    compteur++;
                 }
+                wordsPerFile.put(file.getName(), compteur - 1);
 
-
-                if(!wordsCount.containsKey(tok.lemma()))    wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
-                else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
-
-                previousWord = tok.lemma();
-                compteur++;
+                numFichier++;//DEBUG
+                if (debug)
+                    System.out.println(file.getName() + " annotated \t" + numFichier + "/" + datasetList.size());//DEBUG
             }
-            wordsPerFile.put(file.getName(), compteur - 1);
-
-            numFichier++;//DEBUG
-            if(debug) System.out.println(file.getName() + " annotated \t" + numFichier +"/"+ datasetList.size());//DEBUG
         }
     }
 
@@ -224,30 +256,12 @@ public class TLNManager {
     public static WordMap<String, Integer> getWordsPerFile() {
         return wordsPerFile;
     }
+
+    public static WordMap<String, String> getSearchQueries() {
+        return searchQueries;
+    }
+
+    public static WordMap<String, String> getProbQueries() {
+        return probQueries;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
