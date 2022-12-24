@@ -8,8 +8,6 @@ public class BigramsManager {
     private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
     private static WordMap<String, Integer> wordsCount;
     private static WordMap<TLNManager.BigramEntry, Integer> bigramsCount;
-    private static WordMap<String, String> searchQueries;
-    private static WordMap<String, String> probQueries;
 
     public static void init() {
         bigrams = TLNManager.getBigrams();
@@ -17,18 +15,24 @@ public class BigramsManager {
         wordsCount = TLNManager.getWordsCount();
         bigramsCount = TLNManager.getBigramCounts();
 
-        searchQueries = TLNManager.getSearchQueries();
-        probQueries = TLNManager.getProbQueries();
-
-        for(String s : probQueries.keySet()) System.out.println(secondLikely(s));
-
-        //System.out.println(TLNManager.queries);
-        //for(String s : TLNManager.getWordsPerFile().keySet()) System.out.println(s + "\t" +  TLNManager.getWordsPerFile().get(s));
-        //System.out.println("Tout les bigrams:" + bigrams);;
-        //System.out.println("Comptage de bigrams:" + bigramsCount);;
+        processQuery();
     }
 
     //================= DEVELOPER'S UTILITIES =====================
+    private static void processQuery() {
+        for(String[] query : Main.getQueriesToBeExecuted()) {
+            if(query[0].equalsIgnoreCase("search"))  {
+                System.out.println(tfidf(query[1]));
+                continue;
+            }
+            else if(query[0].equalsIgnoreCase("probable")) {
+                System.out.println(query[1] + " " + secondLikely(query[1]) );
+                continue;
+            }
+            System.out.println("Erreur ligne 42 BigramsManager.java");
+        }
+    }
+
     private static String secondLikely(String w1) {
         WordMap<String, Float> probabilties = new WordMap<>(4);
         ArrayList<String> secondsWord = new ArrayList<>();
@@ -57,7 +61,7 @@ public class BigramsManager {
         //System.out.println(probabilties);
         float highestProb = findMax(probabilties.values());                                 //{6}
 
-        return "Le mot le plus probable apres: \t" + w1 + " est " + findSmallestString(probabilties.getKeysFromValue(highestProb));
+        return findSmallestString(probabilties.getKeysFromValue(highestProb));
     }
 
     private static float findMax(Collection<Float> numbers) {
@@ -73,6 +77,62 @@ public class BigramsManager {
         Collections.sort(words);
         if(words.size() !=0) return words.get(0);
         return null;
+    }
+
+    //Compte combien de fois un mot est present dans un fichier specifique
+    private static int countSpecificWord(String word, String fileName) {
+        int count = -1;
+        if(wordMap.containsKey(word)) {
+            FileMap<String, ArrayList<Integer>> fileMap = wordMap.get(word);
+            count = fileMap.get(fileName).size();
+            //System.out.println("Le mot:\t" + word + " se trouve " + count + " fois dans le fichier: " + fileName);
+        }
+        return count;
+    }
+
+    //Compte combien de fois un mot est present dans chaque fichier:
+    private static WordMap<String, Integer> countFilesByWord(String word) {
+        WordMap<String, Integer> result = new WordMap<>(2);
+        int count = -1;
+        if(wordMap.containsKey(word)) {
+            count = wordMap.get(word).size();
+            for(String fileName : wordMap.get(word).keySet()) {
+                result.put(fileName, countSpecificWord(word, fileName));
+            }
+        }
+        return result;
+    }
+
+    private static String tfidf(String word) {
+        /*
+        POUR CHAQUE DOCUMENT OU IL Y A WORD:
+        ON CHERCHE A CALCULER LE TFIDF
+        NOUS CALCULERONS D'ABORD: TF(WORD) = COUNT(W) / TOTAL(W)
+           COUNT(W) = NBRE DE FOIS QU'APPARAIT WORD DANS UN DOCUMENT==>countSpecificWord()
+           TOTAL(W) = LONGUEUR DU DOCUMENT EN MOTS                  ==>wordsPerFile
+        PUIS NOUS CALCULERONS IDF(W) = LN(TOTALd/COUNT(d,w))
+            TOTALd      = NBRE TOTAL DE DOCUMENTS CONSIDERES        ==>nbreFichiers
+            COUNT(d,w)  = NBRE DE DOCUMENTS CONTENANT WORD          ==>countFilesByWord
+        PUIS TFIDF(WORD)    =   TF(W) * IDF(W)
+         */
+
+        WordMap<String, Float> tfidfValues = new WordMap<>(2);
+
+        float tf   = 0.0f;
+        float idf  = 0.0f;
+        float tfidf= 0.0f;
+
+
+
+        for(String fileName : countFilesByWord(word).keySet()) {        //Pour chaque fichier ou se trouve le mot Word:
+            tf = ((float) countSpecificWord(word, fileName) / (float) TLNManager.getWordsPerFile().get(fileName));
+            idf = (float) Math.log((float)TLNManager.getNbreFichiers() / (float)(countFilesByWord(word).size()));
+            tfidf = tf * idf;
+            tfidfValues.put(fileName, tfidf);
+        }
+
+        return findSmallestString(tfidfValues.getKeysFromValue(findMax(tfidfValues.values())));
+
     }
 
 }

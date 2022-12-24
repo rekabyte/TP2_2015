@@ -1,8 +1,6 @@
 import edu.stanford.nlp.ling.CoreLabel;
-import edu.stanford.nlp.ling.Word;
 import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
-
 import java.io.*;
 import java.util.*;
 import java.util.zip.ZipEntry;
@@ -10,15 +8,16 @@ import java.util.zip.ZipInputStream;
 
 public class TLNManager {
 
-    private static ArrayList<File> dataSet;
     private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
     private static WordMap<String, Integer> wordsCount;
     private static ArrayList<BigramEntry> bigrams;
     private static WordMap<BigramEntry, Integer> bigramCounts;
-    private static WordMap<String, Integer> wordsPerFile;
+    private static WordMap<String, Integer> wordsPerFile;               //Nombre total de mots/fichier
     public static WordMap<String, String> queries;
     private static WordMap<String, String> searchQueries;
     private static WordMap<String, String> probQueries;
+
+    private static int nbreFichiers;
 
     private static boolean debug;
 
@@ -49,59 +48,65 @@ public class TLNManager {
             return bigram2;
         }
 
-        public String toString() { return bigram1 + " - " + bigram2;}
+        public String toString() {
+            return bigram1 + " - " + bigram2;
+        }
     }
 
     //Ouvre le dataset et le decompresse, les stockes temporairement sur l'ordinateur, les analyses(TLN), puis les supprimes.
     public static void datasetReader(String filePath) throws IOException {
         File destDir = new File("src/temp");
-        dataSet = new ArrayList<>();
+        ArrayList<File> dataSet = new ArrayList<>();
         debug = Main.debug;
 
         byte[] buffer = new byte[1024];
-        ZipInputStream zis = new ZipInputStream(new FileInputStream(filePath));
-        ZipEntry zipEntry = zis.getNextEntry();
-        while (zipEntry != null) {
-            if (isValidFile(zipEntry.getName())) {
-                //System.out.println(zipEntry.getName());
-                File newFile = newFile(destDir, zipEntry);
-                if (zipEntry.isDirectory()) {
-                    if (!newFile.isDirectory() && !newFile.mkdirs()) {
-                        throw new IOException("Failed to create directory " + newFile);
+        try {
+            ZipInputStream zis = new ZipInputStream(new FileInputStream(filePath));
+            ZipEntry zipEntry = zis.getNextEntry();
+            while (zipEntry != null) {
+                if (isValidFile(zipEntry.getName())) {
+                    //System.out.println(zipEntry.getName());
+                    File newFile = newFile(destDir, zipEntry);
+                    if (zipEntry.isDirectory()) {
+                        if (!newFile.isDirectory() && !newFile.mkdirs()) {
+                            throw new IOException("Failed to create directory " + newFile);
+                        }
+                    } else {
+                        //fix for Windows-created archives
+                        File parent = newFile.getParentFile();
+                        if (!parent.isDirectory() && !parent.mkdirs()) {
+                            throw new IOException("Failed to create directory " + parent);
+                        }
+
+                        //write file content
+                        FileOutputStream fos = new FileOutputStream(newFile);
+
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) fos.write(buffer, 0, len);
+
+                        dataSet.add(newFile);
+                        fos.close();
                     }
-                } else {
-                    //fix for Windows-created archives
-                    File parent = newFile.getParentFile();
-                    if (!parent.isDirectory() && !parent.mkdirs()) {
-                        throw new IOException("Failed to create directory " + parent);
-                    }
-
-                    //write file content
-                    FileOutputStream fos = new FileOutputStream(newFile);
-
-                    int len;
-                    while ((len = zis.read(buffer)) > 0) fos.write(buffer, 0, len);
-
-                    dataSet.add(newFile);
-                    fos.close();
                 }
+                zipEntry = zis.getNextEntry();
             }
-            zipEntry = zis.getNextEntry();
-        }
-        zis.closeEntry();
-        zis.close();
+            zis.closeEntry();
+            zis.close();
 
-        processDataset(dataSet);
-        deleteDirectory(destDir);
+            processDataset(dataSet);
+            deleteDirectory(destDir);
+        } catch (FileNotFoundException e) {
+            System.out.println("Dataset "+ filePath + " introuvable");
+        }
     }
 
     //Traite les textes qui se trouvent dans la datalist, les tokenize et les repartit sur la wordMap et gere egalement les fileMaps
     private static void processDataset(List<File> datasetList) throws FileNotFoundException {
         bigrams = new ArrayList<>();
-        wordMap = new WordMap<>(20);
+        wordMap = new WordMap<>(5);
         wordsCount = new WordMap<>(5);
-        bigramCounts = new WordMap<>(10);
-        wordsPerFile = new WordMap<>(10);
+        bigramCounts = new WordMap<>(5);
+        wordsPerFile = new WordMap<>(5);
 
         queries = new WordMap<>(4);
         searchQueries = Main.getSearchQueries();
@@ -117,69 +122,74 @@ public class TLNManager {
 
         //This piece of code annotate the query search
         //If the query says "search was", it becomes : "search be"
-        WordMap<String,String> newMap = new WordMap<>(2);
-        for(String query : searchQueries.keySet()) {
+        WordMap<String, String> newMap = new WordMap<>(2);
+        for (String query : searchQueries.keySet()) {
             CoreDocument newDoc = new CoreDocument(query);
             pipeline.annotate(newDoc);
             newMap.put(newDoc.tokens().get(0).lemma(), searchQueries.get(query));
         }
         searchQueries = newMap;
-        //System.out.println("Ensemble des search queries apres annotations:\t"+searchQueries);
 
         newMap = new WordMap<>(2);
-        for(String query : probQueries.keySet()) {
+        for (String query : probQueries.keySet()) {
             CoreDocument newDoc = new CoreDocument(query);
             pipeline.annotate(newDoc);
             newMap.put(newDoc.tokens().get(0).lemma(), probQueries.get(query));
         }
         searchQueries = newMap;
-        //if(debug) System.out.println("Ensemble des prob queries apres annotations:\t"+searchQueries);
+
+        ArrayList<String[]> newQueries = new ArrayList<>();
+        for (String[] query : Main.getQueriesToBeExecuted()) {
+            CoreDocument newDoc = new CoreDocument(query[1]);
+            pipeline.annotate(newDoc);
+            String[] tmpQuery = {query[0].toLowerCase(), newDoc.tokens().get(0).lemma().toLowerCase()};
+            newQueries.add(tmpQuery);
+        }
+        Main.setQueriesToBeExecuted(newQueries);
 
 
+        nbreFichiers= 0;                 //Compte le nbre de fichiers
+        //For every file in datasetlist
+        for (File file : datasetList) {
+            //Reading the current File:
+            Scanner scanner = new Scanner(file);
+            StringBuilder fileContent = new StringBuilder();
+            while (scanner.hasNext()) {
+                fileContent.append(scanner.nextLine()).append(" ");
+            }
+            scanner.close();
+            CoreDocument document = new CoreDocument(fileContent.toString().toLowerCase(Locale.ROOT));
+            // annotate the document
+            pipeline.annotate(document);
 
+            int compteur = 1;                                                                   //Compte l'indexe des mots(tok)
+            String previousWord = "";
 
+            //Pour chaque tok contenu dans le fichier
+            for (CoreLabel tok : document.tokens()) {
+                //Si le tok actuel est un caractere d'accentuation, on skip cette iteration et on passe au tok suivant.
+                if (tok.word().matches("'|,|:|\"|<|>|(|)|=|;|/|[|]|\\{|}|\\+|-|\\*|^|%|#|@|!|\\?|\\\\") || tok.word().equals("."))
+                    continue;
 
-        for(String query : queries.keySet())                 //Pour chaque mot (il peut etre soit search ou prob)
-        {
-            int numFichier = 0;                 //DEBUG
-            //For every file in datasetlist
-            for (File file : datasetList) {
-                //Reading the current File:
-                Scanner scanner = new Scanner(file);
-                StringBuilder fileContent = new StringBuilder();
-                while (scanner.hasNext()) {
-                    fileContent.append(scanner.nextLine()).append(" ");
-                }
-                scanner.close();
-                CoreDocument document = new CoreDocument(fileContent.toString().toLowerCase(Locale.ROOT));
-                // annotate the document
-                pipeline.annotate(document);
+                //======= s'execute uniquement si le mot cherche equivaut a query + on cherche son TFIDF========:
+                //Cree des fileMap uniquement au besoin:
+                if(queries.containsKey(tok.lemma().toLowerCase())){
+                    if(queries.get(tok.lemma().toLowerCase()).equalsIgnoreCase("search")) {
+                        if(!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
+                            wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
+                            wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());
+                        }
 
-                int compteur = 1;                                                                   //Compte l'indexe des mots(tok)
-                String previousWord = "";
+                        if(!wordMap.get(tok.lemma()).containsKey(file.getName()))                       //Si la wordMap contient le mot mais dans un autre fichier:
+                            wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());            //Alors on get le mot et on rajoute un nouveau fileMap avec le nom du fichier actuel
 
-                //Pour chaque tok contenu dans le fichier
-                for (CoreLabel tok : document.tokens()) {
-                    //Si le tok actuel est un caractere d'accentuation, on skip cette iteration et on passe au tok suivant.
-                    if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|}"))
-                        continue;
-
-
-                    //System.out.println(prob);
-                    if (!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
-                        wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
-                        wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());
+                        wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
                     }
-
-                    if (!wordMap.get(tok.lemma()).containsKey(file.getName()))                       //Si la wordMap contient le mot mais dans un autre fichier:
-                        wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());            //Alors on get le mot et on rajoute un nouveau fileMap avec le nom du fichier actuel
-
-                    wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
-
-                    //=======S'execute uniquement si le mot cherche equivaut a query + on cherche sa probabilité========:
-                    //Compte les bigrams uniquement si on en a besoin (present dans probQueries)
-                    if(previousWord.equalsIgnoreCase(query)
-                            && queries.get(query).equalsIgnoreCase("probable")) {
+                }
+                //=======S'execute uniquement si le mot cherche equivaut a query + on cherche sa probabilité========:
+                //Compte les bigrams uniquement si on en a besoin (present dans probQueries)
+                if(queries.containsKey(previousWord.toLowerCase())){
+                    if(queries.get(previousWord.toLowerCase()).equalsIgnoreCase("probable")) {
                         if (compteur != 1) {                                                             //Gere les bigrams:
                             BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
                             bigrams.add(bigram);
@@ -188,20 +198,20 @@ public class TLNManager {
                             else
                                 bigramCounts.put(bigram, bigramCounts.get(bigram) + 1);
                         }
-                   }
-
-                    if (!wordsCount.containsKey(tok.lemma())) wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
-                    else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
-
-                    previousWord = tok.lemma();
-                    compteur++;
+                    }
                 }
-                wordsPerFile.put(file.getName(), compteur - 1);
 
-                numFichier++;//DEBUG
-                if (debug)
-                    System.out.println(file.getName() + " annotated \t" + numFichier + "/" + datasetList.size());//DEBUG
+                if (!wordsCount.containsKey(tok.lemma())) wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
+                else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
+
+                previousWord = tok.lemma();
+                compteur++;
             }
+            wordsPerFile.put(file.getName(), compteur - 1);
+
+            nbreFichiers++;//DEBUG
+            if (debug)
+                System.out.println(file.getName() + " annotated \t" + nbreFichiers + "/" + datasetList.size());//DEBUG
         }
     }
 
@@ -240,11 +250,6 @@ public class TLNManager {
         return fileName.endsWith(".txt") && !fileName.contains("._") && !fileName.contains(".DS_store");
     }
 
-    //============  GETTERS ================
-    public static ArrayList<File> getData() {
-        return dataSet;
-    }
-
     public static WordMap<String, FileMap<String, ArrayList<Integer>>> getWordMap() {
         return wordMap;
     }
@@ -272,4 +277,9 @@ public class TLNManager {
     public static WordMap<String, String> getProbQueries() {
         return probQueries;
     }
+
+    public static int getNbreFichiers() {return nbreFichiers;}
+
+
+
 }

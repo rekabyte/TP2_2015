@@ -1,4 +1,3 @@
-search was
-the most probable bigram of the
-the most probable bigram of for
+search planet
+the most probable bigram of New
 search species
