@@ -22,6 +22,7 @@ public class BigramsManager {
 
         for(String s : probQueries.keySet()) System.out.println(secondLikely(s));
 
+        //System.out.println(TLNManager.queries);
         //for(String s : TLNManager.getWordsPerFile().keySet()) System.out.println(s + "\t" +  TLNManager.getWordsPerFile().get(s));
         //System.out.println("Tout les bigrams:" + bigrams);;
         //System.out.println("Comptage de bigrams:" + bigramsCount);;

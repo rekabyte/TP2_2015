@@ -26,7 +26,7 @@ public class Main {
 
 		readQuery(query);
 
-		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\dataset2");
+		TLNManager.datasetReader("E:\\Eclipse\\TP2_2015\\src\\testset");
 		BigramsManager.init();
 		System.out.println("Programme s'est termine apres: " + (System.currentTimeMillis() - start) + "ms");
 

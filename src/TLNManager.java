@@ -16,6 +16,7 @@ public class TLNManager {
     private static ArrayList<BigramEntry> bigrams;
     private static WordMap<BigramEntry, Integer> bigramCounts;
     private static WordMap<String, Integer> wordsPerFile;
+    public static WordMap<String, String> queries;
     private static WordMap<String, String> searchQueries;
     private static WordMap<String, String> probQueries;
 
@@ -102,8 +103,11 @@ public class TLNManager {
         bigramCounts = new WordMap<>(10);
         wordsPerFile = new WordMap<>(10);
 
+        queries = new WordMap<>(4);
         searchQueries = Main.getSearchQueries();
         probQueries = Main.getProbQueries();
+        queries.putAll(searchQueries);
+        queries.putAll(probQueries);
 
         // set up pipeline properties
         Properties props = new Properties();
@@ -135,7 +139,7 @@ public class TLNManager {
 
 
 
-        for(String prob : probQueries.keySet())                 //Pour chaque mot a trouver la proba:
+        for(String query : queries.keySet())                 //Pour chaque mot (il peut etre soit search ou prob)
         {
             int numFichier = 0;                 //DEBUG
             //For every file in datasetlist
@@ -172,7 +176,10 @@ public class TLNManager {
 
                     wordMap.get(tok.lemma()).get(file.getName()).add(compteur);                     //On rajoute la position du mot dans la fileMap du mot
 
-                    if(previousWord.equalsIgnoreCase(prob)) {
+                    //=======S'execute uniquement si le mot cherche equivaut a query + on cherche sa probabilité========:
+                    //Compte les bigrams uniquement si on en a besoin (present dans probQueries)
+                    if(previousWord.equalsIgnoreCase(query)
+                            && queries.get(query).equalsIgnoreCase("probable")) {
                         if (compteur != 1) {                                                             //Gere les bigrams:
                             BigramEntry bigram = new BigramEntry(previousWord, tok.lemma());
                             bigrams.add(bigram);
@@ -181,7 +188,8 @@ public class TLNManager {
                             else
                                 bigramCounts.put(bigram, bigramCounts.get(bigram) + 1);
                         }
-                   }                                    //Compte les bigrams uniquement si on en a besoin (present dans probQueries)
+                   }
+
                     if (!wordsCount.containsKey(tok.lemma())) wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
                     else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
 
