@@ -5,7 +5,6 @@ import java.util.Collections;
 public class BigramsManager {
 
     private static ArrayList<TLNManager.BigramEntry> bigrams;
-    private static ArrayList<TLNManager.BigramEntry> processedBigrams = new ArrayList<>();
     private static WordMap<String, FileMap<String, ArrayList<Integer>>> wordMap;
     private static WordMap<String, Integer> wordsCount;
     private static WordMap<TLNManager.BigramEntry, Integer> bigramsCount;
@@ -15,7 +14,10 @@ public class BigramsManager {
         wordMap = TLNManager.getWordMap();
         wordsCount = TLNManager.getWordsCount();
         bigramsCount = TLNManager.getBigramCounts();
-        secondLikely("fox");
+        secondLikely("the");
+        for(String s : TLNManager.getWordsPerFile().keySet()) {
+            System.out.println(s + "\t" +  TLNManager.getWordsPerFile().get(s));
+        }
     }
 
     //================= DEVELOPER'S UTILITIES =====================

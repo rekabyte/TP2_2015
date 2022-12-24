@@ -1,4 +1,5 @@
 import edu.stanford.nlp.ling.CoreLabel;
+import edu.stanford.nlp.ling.Word;
 import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 
@@ -14,13 +15,15 @@ public class TLNManager {
     private static WordMap<String, Integer> wordsCount;
     private static ArrayList<BigramEntry> bigrams;
     private static WordMap<BigramEntry, Integer> bigramCounts;
+    private static WordMap<String, Integer> wordsPerFile;
+    private static WordMap<String, String> queries;
 
-    public static boolean debug = true;
+    private static boolean debug;
 
-    public static class BigramEntry extends Object{
-        String bigram1 = "";
-        String bigram2 = "";
-        int length = -1;
+    public static class BigramEntry {
+        String bigram1;
+        String bigram2;
+        int length;
 
         public BigramEntry(String bigram1, String bigram2) {
             this.bigram1 = bigram1;
@@ -31,13 +34,9 @@ public class TLNManager {
         @Override
         public boolean equals(Object other) {
             BigramEntry anotherBigramEntry = (BigramEntry) other;
-            if(bigram1.equalsIgnoreCase(anotherBigramEntry.getBigram1()) &&
-            bigram2.equalsIgnoreCase(anotherBigramEntry.getBigram2())) {
-                //System.out.println(anotherBigramEntry + " est pareil que " + this.toString());
-                return true;
-            }
-            //System.out.println(anotherBigramEntry + " est different de " + this.toString());
-            return false;
+
+            return bigram1.equalsIgnoreCase(anotherBigramEntry.getBigram1()) &&
+                    bigram2.equalsIgnoreCase(anotherBigramEntry.getBigram2());
         }
 
         public String getBigram1() {
@@ -55,6 +54,7 @@ public class TLNManager {
     public static void datasetReader(String filePath) throws IOException {
         File destDir = new File("src/temp");
         dataSet = new ArrayList<>();
+        debug = Main.debug;
 
         byte[] buffer = new byte[1024];
         ZipInputStream zis = new ZipInputStream(new FileInputStream(filePath));
@@ -80,15 +80,12 @@ public class TLNManager {
                     int len;
                     while ((len = zis.read(buffer)) > 0) fos.write(buffer, 0, len);
 
-
-                    //TODO inserer le code qui lit le fichier
                     dataSet.add(newFile);
                     fos.close();
                 }
             }
             zipEntry = zis.getNextEntry();
         }
-        System.out.println("Lecture/ecriture des fichiers termines");
         zis.closeEntry();
         zis.close();
 
@@ -98,10 +95,13 @@ public class TLNManager {
 
     //Traite les textes qui se trouvent dans la datalist, les tokenize et les repartit sur la wordMap et gere egalement les fileMaps
     private static void processDataset(List<File> datasetList) throws FileNotFoundException {
+        bigrams = new ArrayList<>();
         wordMap = new WordMap<>(20);
         wordsCount = new WordMap<>(5);
-        bigrams = new ArrayList<>();
-        bigramCounts = new WordMap<BigramEntry, Integer>(10);
+        bigramCounts = new WordMap<>(10);
+        wordsPerFile = new WordMap<>(10);
+
+        queries = Main.getQueries();
 
         // set up pipeline properties
         Properties props = new Properties();
@@ -113,15 +113,13 @@ public class TLNManager {
         //For every file in datasetlist
         for (File file : datasetList) {
             Scanner scanner = new Scanner(file);
-            String fileContent = "";
+            StringBuilder fileContent = new StringBuilder();
             while (scanner.hasNext()) {
-                fileContent += scanner.nextLine();
-                fileContent += " ";
+                fileContent.append(scanner.nextLine()).append(" ");
             }
             scanner.close();
 
-
-            CoreDocument document = new CoreDocument(fileContent.toLowerCase(Locale.ROOT));
+            CoreDocument document = new CoreDocument(fileContent.toString().toLowerCase(Locale.ROOT));
             // annotate the document
             //long start2 = System.currentTimeMillis();
             pipeline.annotate(document);
@@ -130,15 +128,10 @@ public class TLNManager {
             String previousWord = "";
 
             //Pour chaque tok contenu dans le fichier
-
-            //System.out.println("On commence l'analyse des tok.");
             for (CoreLabel tok : document.tokens()) {
-                if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|\\}"))
+                if (tok.word().matches("'|,|:|.|\"|<|>|=|;|/|[|]|\\{|}"))
                     continue;                                                                   //Si le tok actuel est un caractere d'accentuation, on
-                //skip cette iteration et on passe au tok suivant.
-
-                //long start = System.nanoTime();
-
+                                                                                                //skip cette iteration et on passe au tok suivant.
                 if (!wordMap.containsKey(tok.lemma())) {                                         //Si la wordMap ne contient pas le mot
                     wordMap.put(tok.lemma(), new FileMap<>(4));                             //On cree le mot dans la wordMap et on cree un fileMap comme valeur
                     wordMap.get(tok.lemma()).put(file.getName(), new ArrayList<>());
@@ -159,21 +152,17 @@ public class TLNManager {
                 }
 
 
-
                 if(!wordsCount.containsKey(tok.lemma()))    wordsCount.put(tok.lemma(), 1);     //Gere les wordsCount:
                 else wordsCount.put(tok.lemma(), wordsCount.get(tok.lemma()) + 1);
 
                 previousWord = tok.lemma();
-
                 compteur++;
-
             }
-            //System.out.println("Analyse d'un fichier s'est termine apres: " + (System.currentTimeMillis() - start2) + "ms");
-            numFichier++;
-            if(debug) System.out.println(file.getName() + " annotated \t" + numFichier +"/"+ datasetList.size());
+            wordsPerFile.put(file.getName(), compteur - 1);
+
+            numFichier++;//DEBUG
+            if(debug) System.out.println(file.getName() + " annotated \t" + numFichier +"/"+ datasetList.size());//DEBUG
         }
-
-
     }
 
     //Methode qui limiter la creation de fichiers au dossier actuel
@@ -232,6 +221,9 @@ public class TLNManager {
         return bigramCounts;
     }
 
+    public static WordMap<String, Integer> getWordsPerFile() {
+        return wordsPerFile;
+    }
 }
 
 
